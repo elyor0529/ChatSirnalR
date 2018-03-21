@@ -13,11 +13,11 @@ namespace Demo.ChatSirnalR.Controllers
     {
         private ApplicationDbContext _dbContext;
 
-        protected HomeController()
+        public HomeController()
         {
         }
 
-        protected HomeController(ApplicationDbContext dbContext)
+        public HomeController(ApplicationDbContext dbContext)
         {
             DbContext = dbContext;
         }

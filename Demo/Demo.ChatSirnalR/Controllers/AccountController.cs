@@ -82,8 +82,8 @@ namespace Demo.ChatSirnalR.Controllers
                 var user = new ApplicationUser
                 {
                     UserName = model.UserName,
-                    Email = model.UserName,
-                    EmailConfirmed = true
+                    Email = model.UserName, 
+                    IsOnline = false
                 };
                 var result = await UserManager.CreateAsync(user, model.Password);
 
@@ -102,9 +102,14 @@ namespace Demo.ChatSirnalR.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult LogOff()
+        public async Task<ActionResult> LogOff()
         {
             AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
+
+            var user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
+
+            user.IsOnline = false;
+            await UserManager.UpdateAsync(user);
 
             return RedirectToAction("Index", "Home");
         }

@@ -19,13 +19,13 @@ namespace Demo.ChatSirnalR.Hubs
             if (message.StartsWith("#"))
             {
                 var pmUserName = message.Split(' ')[0].Substring(1);
-                var pmConnection = _db.Users.FirstOrDefault(x => x.UserName.ToLower() == pmUserName && x.IsOnline);
+                var pmConnection = _db.Users.FirstOrDefault(a => a.UserName.ToLower() == pmUserName && a.IsOnline);
 
                 if (pmConnection != null)
                 {
                     var connections = new List<string>
                     {
-                        Context.ConnectionId,
+                        CurrentConnectionId,
                         pmConnection.ConnectionId
                     };
 
@@ -42,14 +42,12 @@ namespace Demo.ChatSirnalR.Hubs
         {
             try
             {
+                var activeUsers = _db.Users.Where(a => a.IsOnline && a.ConnectionId != CurrentConnectionId).Select(a => a.UserName).ToArray();
+
                 Clients.All.UpdateUsersOnline(new
                 {
                     success = true,
-                    response = _db.Users.Where(x => x.IsOnline).Select(a => new
-                    {
-                        a.ConnectionId,
-                        a.UserName
-                    })
+                    result = activeUsers
                 });
             }
             catch (Exception ex)
@@ -57,19 +55,19 @@ namespace Demo.ChatSirnalR.Hubs
                 Clients.All.UpdateUsersOnline(new
                 {
                     success = false,
-                    response = ex.Message
+                    result = ex.Message
                 });
             }
         }
 
-        public dynamic ConnectUser(string id)
+        public dynamic ConnectUser(string userName)
         {
             try
             {
-                var user = _db.Users.Find(id);
+                var user = _db.Users.FirstOrDefault(a => a.UserName == userName);
 
                 if (user == null)
-                    throw new Exception($"User#{id} is null.");
+                    throw new Exception($"User#{userName} is null.");
 
                 user.ConnectionId = CurrentConnectionId;
                 user.IsOnline = true;
@@ -87,7 +85,7 @@ namespace Demo.ChatSirnalR.Hubs
                 return new
                 {
                     success = false,
-                    response = ex.Message
+                    result = ex.Message
                 };
             }
         }
@@ -95,7 +93,7 @@ namespace Demo.ChatSirnalR.Hubs
         public override Task OnReconnected()
         {
 
-            var user = _db.Users.FirstOrDefault(x => x.ConnectionId == CurrentConnectionId);
+            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == CurrentConnectionId);
 
             if (user == null)
                 throw new Exception("An attempt to reconnect a non tracked connection id have been made.");
@@ -110,7 +108,7 @@ namespace Demo.ChatSirnalR.Hubs
 
         public override Task OnDisconnected(bool stopCalled)
         {
-            var user = _db.Users.FirstOrDefault(x => x.ConnectionId == CurrentConnectionId);
+            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == CurrentConnectionId);
 
             if (user == null)
                 throw new Exception("An attempt to disconnect a non tracked connection id have been made.");

@@ -1,10 +1,18 @@
 ﻿@{
-    ViewBag.Title = "Chat";
+    ViewBag.Title = "Welcome " + User.Identity.GetUserName() + "!";
 }
 
 @section styles
 {
     <style type="text/css">
+        #message {
+            min-width: 100%;
+        }
+
+        #messages-continer {
+            min-height: 50vh;
+            overflow: auto;
+        }
     </style>
 }
 
@@ -15,18 +23,15 @@
         <div class="row">
             <div class="col-xs-12 col-lg-12">
                 <div class="panel panel-default">
-                    <div class="panel-heading">@User.Identity.GetUserName()</div>
-                    <div class="panel-body">
+                    <div class="panel-heading">Chat room</div>
+                    <div class="panel-body" id="messages-continer">
                         <ul class="list-group" id="messages"></ul>
                     </div>
                     <div class="panel-footer">
-                        <form class="form-inline">
-                            <div class="form-group">
-                                <label for="message">Message</label>
-                                <input type="text" class="form-control" name="message" id="message" placeholder="Please enter message">
-                            </div>
-                            <button type="submit" class="btn btn-default">Send</button>
-                        </form>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="message" placeholder="Please enter message">
+                        </div>
+                        <button type="button" id="send" class="btn btn-primary">Send</button>
                     </div>
                 </div>
             </div>
@@ -39,7 +44,8 @@
 </div>
 
 @section scripts
-{ 
+{
+    <script src="~/Scripts/jquery.signalR-2.2.3.min.js"></script>
     <script src="/signalr/hubs"></script>
     <script>
 
@@ -51,12 +57,12 @@
                 var $newMessage;
 
                 if (currentUserName === userName) {
-                    $newMessage = $('<li class="list-group-item active">' + message + '</li>');
+                    $newMessage = $('<li class="list-group-item active">#'+userName+': ' + message + '</li>');
                 } else {
-                    $newMessage = $('<li class="list-group-item">' + message + '</li>');
+                    $newMessage = $('<li class="list-group-item">#'+userName+': '+ message + '</li>');
                 }
 
-                $("#chat").append($newMessage);
+                $("#messages").append($newMessage);
 
                 $newMessage[0].scrollIntoView(true);
             };
@@ -73,22 +79,21 @@
 
                 $users.html("");
 
-                for (var user of data.result) {
-                    if (user === currentUserName)
-                        $users.append($('<a href="javascript:void(0);" class="list-group-item active">' + user + '</a>'));
-                    else {
-                        var $user = $('<a href="javascript:void(0);" class="list-group-item">' + user + '</a>');
+                $.each(data.result, function (index, user) {
 
-                        $user.click(function () {
-                            var $message = $("#message");
+                    var $user = $('<a href="javascript:void(0);" class="list-group-item">' + user + '</a>');
 
-                            $message.val("#" + $(this).text() + " ");
-                            $message.focus();
-                        });
+                    $user.click(function () {
+                        var $message = $("#message");
 
-                        $users.append($user);
-                    }
-                }
+                        $message.val("#" + $(this).text() + " ");
+                        $message.focus();
+                        $users.find(".list-group-item").removeClass("active");
+                        $user.addClass("active");
+                    });
+
+                    $users.append($user);
+                });
             };
 
             $.connection.hub.start()
@@ -99,7 +104,7 @@
                             return;
                         }
 
-                        var $message = $("#message"); 
+                        var $message = $("#message");
                         var sendMessage = function () {
                             $message.focus();
 
