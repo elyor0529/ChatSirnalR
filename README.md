@@ -1,5 +1,4 @@
-# ChatSirnalR
-Demo Chat SirnalR 
+# Demo Chat SirnalR 
 
 Смогли бы вы выполнить тестовое задание?
 
