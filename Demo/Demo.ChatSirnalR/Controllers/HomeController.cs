@@ -3,28 +3,29 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
+using Demo.ChatSirnalR.Models;
+using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
 
 namespace Demo.ChatSirnalR.Controllers
 {
-    [Authorize]
-    public class HomeController : Controller
+    public class HomeController : MainController
     {
-        private ApplicationUserManager _userManager;
+        private ApplicationDbContext _dbContext;
 
-        public HomeController()
+        protected HomeController()
         {
         }
 
-        public HomeController(ApplicationUserManager userManager)
+        protected HomeController(ApplicationDbContext dbContext)
         {
-            UserManager = userManager;
+            DbContext = dbContext;
         }
 
-        private ApplicationUserManager UserManager
+        private ApplicationDbContext DbContext
         {
-            get { return _userManager ?? HttpContext.GetOwinContext().GetUserManager<ApplicationUserManager>(); }
-            set { _userManager = value; }
+            get { return _dbContext ?? HttpContext.GetOwinContext().GetUserManager<ApplicationDbContext>(); }
+            set { _dbContext = value; }
         }
 
         public ActionResult Index()

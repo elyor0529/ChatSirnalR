@@ -2,30 +2,128 @@
     ViewBag.Title = "Chat";
 }
 
-<div class="jumbotron">
-    <h1>ASP.NET</h1>
-    <p class="lead">ASP.NET is a free web framework for building great Web sites and Web applications using HTML, CSS and JavaScript.</p>
-    <p><a href="http://asp.net" class="btn btn-primary btn-lg">Learn more &raquo;</a></p>
+@section styles
+{
+    <style type="text/css">
+    </style>
+}
+
+<div class="row row-offcanvas row-offcanvas-right">
+
+    <div class="col-xs-12 col-sm-9">
+
+        <div class="row">
+            <div class="col-xs-12 col-lg-12">
+                <div class="panel panel-default">
+                    <div class="panel-heading">@User.Identity.GetUserName()</div>
+                    <div class="panel-body">
+                        <ul class="list-group" id="messages"></ul>
+                    </div>
+                    <div class="panel-footer">
+                        <form class="form-inline">
+                            <div class="form-group">
+                                <label for="message">Message</label>
+                                <input type="text" class="form-control" name="message" id="message" placeholder="Please enter message">
+                            </div>
+                            <button type="submit" class="btn btn-default">Send</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-6 col-sm-3 sidebar-offcanvas" id="sidebar">
+        <div class="list-group" id="users">
+        </div>
+    </div>
 </div>
 
-<div class="row">
-    <div class="col-md-4">
-        <h2>Getting started</h2>
-        <p>
-            ASP.NET MVC gives you a powerful, patterns-based way to build dynamic websites that
-            enables a clean separation of concerns and gives you full control over markup
-            for enjoyable, agile development.
-        </p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301865">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Get more libraries</h2>
-        <p>NuGet is a free Visual Studio extension that makes it easy to add, remove, and update libraries and tools in Visual Studio projects.</p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301866">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Web Hosting</h2>
-        <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301867">Learn more &raquo;</a></p>
-    </div>
-</div>
+@section scripts
+{ 
+    <script src="/signalr/hubs"></script>
+    <script>
+
+        $(function () {
+            var currentUserName = '@User.Identity.GetUserName()';
+            var demoChatHubProxy = $.connection.demoChatHub;
+
+            demoChatHubProxy.client.updateChat = function (userName, message, isPm) {
+                var $newMessage;
+
+                if (currentUserName === userName) {
+                    $newMessage = $('<li class="list-group-item active">' + message + '</li>');
+                } else {
+                    $newMessage = $('<li class="list-group-item">' + message + '</li>');
+                }
+
+                $("#chat").append($newMessage);
+
+                $newMessage[0].scrollIntoView(true);
+            };
+
+            demoChatHubProxy.client.updateUsersOnline = function (data) {
+
+                if (!data.success) {
+                    console.error(data.result);
+
+                    return;
+                }
+
+                var $users = $("#users");
+
+                $users.html("");
+
+                for (var user of data.result) {
+                    if (user === currentUserName)
+                        $users.append($('<a href="javascript:void(0);" class="list-group-item active">' + user + '</a>'));
+                    else {
+                        var $user = $('<a href="javascript:void(0);" class="list-group-item">' + user + '</a>');
+
+                        $user.click(function () {
+                            var $message = $("#message");
+
+                            $message.val("#" + $(this).text() + " ");
+                            $message.focus();
+                        });
+
+                        $users.append($user);
+                    }
+                }
+            };
+
+            $.connection.hub.start()
+                .done(function () {
+                    demoChatHubProxy.server.connectUser(currentUserName).done(function (data, textStatus, jqXHR) {
+                        if (!data.success) {
+                            console.error(data.result);
+                            return;
+                        }
+
+                        var $message = $("#message"); 
+                        var sendMessage = function () {
+                            $message.focus();
+
+                            if ($message.val() === "")
+                                return;
+
+                            demoChatHubProxy.server.sendMessage(currentUserName, $message.val());
+                            $message.val("");
+                        };
+
+                        $message.keyup(function (data) {
+                            if (data.which === 13)
+                                sendMessage();
+                        });
+
+                        $("#send").click(sendMessage);
+
+                        $message.focus();
+                    });
+                })
+                .fail(function () {
+                    console.warn("Could not connect.");
+                });
+        });
+    </script>
+
+}

@@ -1,13 +1,33 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
 using System.Data.Entity.Validation;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 
 namespace Demo.ChatSirnalR.Models
 {
+    public class ApplicationUser : IdentityUser
+    { 
+
+        public string ConnectionId { get; set; }
+
+        public bool IsOnline { get; set; }
+
+        public async Task<ClaimsIdentity> GenerateUserIdentityAsync(UserManager<ApplicationUser> manager)
+        {
+            var userIdentity = await manager.CreateIdentityAsync(this, DefaultAuthenticationTypes.ApplicationCookie);
+
+            return userIdentity;
+        }
+    }
+
+
 
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
@@ -31,7 +51,7 @@ namespace Demo.ChatSirnalR.Models
 
             //default options
             modelBuilder.HasDefaultSchema("dbo");
-             
+
             //identity tables
             modelBuilder.Entity<ApplicationUser>().ToTable("Users");
             modelBuilder.Entity<IdentityRole>().ToTable("UserRoles");
@@ -40,7 +60,7 @@ namespace Demo.ChatSirnalR.Models
             modelBuilder.Entity<IdentityRole>().ToTable("Roles");
             modelBuilder.Entity<IdentityUserRole>().ToTable("UserRoles");
 
-        } 
+        }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {

@@ -8,19 +8,16 @@ using Microsoft.Owin.Security;
 
 namespace Demo.ChatSirnalR.Controllers
 {
-    [Authorize]
-    public class AccountController : Controller
+    public class AccountController : MainController
     {
         private ApplicationSignInManager _signInManager;
-        private ApplicationUserManager _userManager;
 
         public AccountController()
         {
         }
 
-        public AccountController(ApplicationUserManager userManager, ApplicationSignInManager signInManager)
+        public AccountController(ApplicationSignInManager signInManager)
         {
-            UserManager = userManager;
             SignInManager = signInManager;
         }
 
@@ -28,12 +25,6 @@ namespace Demo.ChatSirnalR.Controllers
         {
             get { return _signInManager ?? HttpContext.GetOwinContext().Get<ApplicationSignInManager>(); }
             set { _signInManager = value; }
-        }
-
-        private ApplicationUserManager UserManager
-        {
-            get { return _userManager ?? HttpContext.GetOwinContext().GetUserManager<ApplicationUserManager>(); }
-            set { _userManager = value; }
         }
 
         private IAuthenticationManager AuthenticationManager => HttpContext.GetOwinContext().Authentication;
@@ -64,7 +55,9 @@ namespace Demo.ChatSirnalR.Controllers
             switch (result)
             {
                 case SignInStatus.Success:
-                    return RedirectToLocal(model.ReturnUrl);
+                    {
+                        return RedirectToLocal(model.ReturnUrl);
+                    }
                 default:
                     ModelState.AddModelError("", "Invalid login attempt.");
                     return View(model);
@@ -74,7 +67,9 @@ namespace Demo.ChatSirnalR.Controllers
         [AllowAnonymous]
         public ActionResult Register()
         {
-            return View();
+            var model = new RegisterViewModel();
+
+            return View(model);
         }
 
         [HttpPost]
@@ -118,12 +113,6 @@ namespace Demo.ChatSirnalR.Controllers
         {
             if (disposing)
             {
-                if (_userManager != null)
-                {
-                    _userManager.Dispose();
-                    _userManager = null;
-                }
-
                 if (_signInManager != null)
                 {
                     _signInManager.Dispose();
@@ -132,24 +121,6 @@ namespace Demo.ChatSirnalR.Controllers
             }
 
             base.Dispose(disposing);
-        }
-
-        private void AddErrors(IdentityResult result)
-        {
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError("", error);
-            }
-        }
-
-        private ActionResult RedirectToLocal(string returnUrl)
-        {
-            if (Url.IsLocalUrl(returnUrl))
-            {
-                return Redirect(returnUrl);
-            }
-
-            return RedirectToAction("Index", "Home");
         }
 
     }

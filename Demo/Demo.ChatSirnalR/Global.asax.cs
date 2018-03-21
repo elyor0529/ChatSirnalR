@@ -16,19 +16,6 @@ namespace Demo.ChatSirnalR
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
-        }
-
-        protected void Application_Error(object sender, EventArgs e)
-        {
-            var exception = Server.GetLastError();
-
-            if (exception == null)
-                return;
-
-            Server.ClearError();
-
-            Response.Write(exception.Message);
-            Response.Flush();
-        }
+        } 
     }
 }
