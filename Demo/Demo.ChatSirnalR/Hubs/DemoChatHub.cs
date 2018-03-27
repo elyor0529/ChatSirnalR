@@ -5,46 +5,59 @@ using System.Linq;
 using System.Threading.Tasks;
 using Demo.ChatSirnalR.Models;
 using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Hubs;
 
 namespace Demo.ChatSirnalR.Hubs
 {
+    [HubName("demoChatHub")]
     public class DemoChatHub : Hub
     {
         private ApplicationDbContext _db = new ApplicationDbContext();
 
-        private string CurrentConnectionId => Context.ConnectionId;
-
-        public void SendMessage(string userName, string message)
+        public void SendMessage(string id, string message)
         {
-            if (message.StartsWith("#"))
+            var fromUser = _db.Users.FirstOrDefault(a => a.ConnectionId == Context.ConnectionId);
+            if (fromUser == null)
+                throw new Exception($"User#{Context.ConnectionId} is disconnected!");
+
+            var toUser = _db.Users.Find(id);
+            if (toUser == null)
+                throw new Exception($"User#{id} is unavaliable!");
+
+            var ent = new MessageHistory
             {
-                var pmUserName = message.Split(' ')[0].Substring(1);
-                var pmConnection = _db.Users.FirstOrDefault(a => a.UserName.ToLower() == pmUserName && a.IsOnline);
+                Content = message,
+                Date = DateTime.Now,
+                FromUserId = fromUser.Id,
+                ToUserId = toUser.Id
+            };
+            _db.MessageHistories.Add(ent);
+            _db.Entry(ent).State = EntityState.Added;
+            _db.SaveChanges();
 
-                if (pmConnection != null)
-                {
-                    var connections = new List<string>
-                    {
-                        CurrentConnectionId,
-                        pmConnection.ConnectionId
-                    };
+            var connections = new List<string>
+            {
+                Context.ConnectionId,
+                toUser.ConnectionId
+            };
+            var date = ent.Date.ToLongDateString() + " " + ent.Date.ToShortTimeString();
 
-                    Clients.Clients(connections).UpdateChat(userName, message, true);
+            Clients.Clients(connections).UpdateChat(id, date, message);
 
-                    return;
-                }
-            }
-
-            Clients.All.UpdateChat(userName, message);
         }
 
-        private void UpdateUsersOnline()
+        private void UpdateUsers()
         {
             try
             {
-                var activeUsers = _db.Users.Where(a => a.IsOnline && a.ConnectionId != CurrentConnectionId).Select(a => a.UserName).ToArray();
+                var activeUsers = _db.Users.Select(a => new
+                {
+                    id = a.Id,
+                    name = a.UserName,
+                    online = a.IsOnline ? 1 : 0
+                }).ToArray();
 
-                Clients.All.UpdateUsersOnline(new
+                Clients.All.UpdateUsers(new
                 {
                     success = true,
                     result = activeUsers
@@ -52,7 +65,7 @@ namespace Demo.ChatSirnalR.Hubs
             }
             catch (Exception ex)
             {
-                Clients.All.UpdateUsersOnline(new
+                Clients.All.UpdateUsers(new
                 {
                     success = false,
                     result = ex.Message
@@ -60,20 +73,22 @@ namespace Demo.ChatSirnalR.Hubs
             }
         }
 
-        public dynamic ConnectUser(string userName)
+        public dynamic ConnectUser(string id)
         {
             try
             {
-                var user = _db.Users.FirstOrDefault(a => a.UserName == userName);
+                var user = _db.Users.Find(id);
 
                 if (user == null)
-                    throw new Exception($"User#{userName} is null.");
+                    throw new Exception($"User#{id} is null.");
 
-                user.ConnectionId = CurrentConnectionId;
+                user.ConnectionId = Context.ConnectionId;
                 user.IsOnline = true;
+
+                _db.Entry(user).State = EntityState.Modified;
                 _db.SaveChanges();
 
-                UpdateUsersOnline();
+                UpdateUsers();
 
                 return new
                 {
@@ -93,30 +108,34 @@ namespace Demo.ChatSirnalR.Hubs
         public override Task OnReconnected()
         {
 
-            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == CurrentConnectionId);
+            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == Context.ConnectionId);
 
             if (user == null)
                 throw new Exception("An attempt to reconnect a non tracked connection id have been made.");
 
             user.IsOnline = true;
+
+            _db.Entry(user).State = EntityState.Modified;
             _db.SaveChanges();
 
-            UpdateUsersOnline();
+            UpdateUsers();
 
             return base.OnReconnected();
         }
 
         public override Task OnDisconnected(bool stopCalled)
         {
-            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == CurrentConnectionId);
+            var user = _db.Users.FirstOrDefault(a => a.ConnectionId == Context.ConnectionId);
 
             if (user == null)
                 throw new Exception("An attempt to disconnect a non tracked connection id have been made.");
 
             user.IsOnline = false;
+
+            _db.Entry(user).State = EntityState.Modified;
             _db.SaveChanges();
 
-            UpdateUsersOnline();
+            UpdateUsers();
 
             return base.OnDisconnected(stopCalled);
         }

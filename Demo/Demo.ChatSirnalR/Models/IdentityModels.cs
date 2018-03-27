@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
@@ -7,17 +8,45 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.Mvc;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 
 namespace Demo.ChatSirnalR.Models
 {
+    public class MessageHistory
+    {
+
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public long Id { get; set; }
+
+        [Required]
+        [AllowHtml]
+        [StringLength(250)]
+        public string Content { get; set; }
+
+        public DateTime Date { get; set; }
+
+        [Required]
+        [ForeignKey("FromUser")]
+        public string FromUserId { get; set; }
+
+        public virtual ApplicationUser FromUser { get; set; }
+
+        [ForeignKey("ToUser")]
+        public string ToUserId { get; set; }
+
+        public virtual ApplicationUser ToUser { get; set; }
+
+    }
+
     public class ApplicationUser : IdentityUser
-    { 
+    {
 
         public string ConnectionId { get; set; }
 
-        public bool IsOnline { get; set; }
+        public bool IsOnline { get; set; } 
 
         public async Task<ClaimsIdentity> GenerateUserIdentityAsync(UserManager<ApplicationUser> manager)
         {
@@ -25,9 +54,8 @@ namespace Demo.ChatSirnalR.Models
 
             return userIdentity;
         }
+
     }
-
-
 
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
@@ -36,23 +64,19 @@ namespace Demo.ChatSirnalR.Models
         {
         }
 
+        public DbSet<MessageHistory> MessageHistories { get; set; }
+
         public static ApplicationDbContext Create()
         {
             return new ApplicationDbContext();
         }
 
-
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {
-            //prop type
             modelBuilder.Properties<DateTime>().Configure(c => c.HasColumnType("datetime2"));
 
             base.OnModelCreating(modelBuilder);
 
-            //default options
-            modelBuilder.HasDefaultSchema("dbo");
-
-            //identity tables
             modelBuilder.Entity<ApplicationUser>().ToTable("Users");
             modelBuilder.Entity<IdentityRole>().ToTable("UserRoles");
             modelBuilder.Entity<IdentityUserLogin>().ToTable("UserLogins");

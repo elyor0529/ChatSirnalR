@@ -10,7 +10,7 @@
         }
 
         #messages-continer {
-            min-height: 50vh;
+            height: 50vh;
             overflow: auto;
         }
     </style>
@@ -48,26 +48,22 @@
     <script src="~/Scripts/jquery.signalR-2.2.3.min.js"></script>
     <script src="/signalr/hubs"></script>
     <script>
+        var currentUserId = '@User.Identity.GetUserId()';
 
-        $(function () {
-            var currentUserName = '@User.Identity.GetUserName()';
-            var demoChatHubProxy = $.connection.demoChatHub;
+        function loadHistories(e) {
+            var _ = $(e);
 
-            demoChatHubProxy.client.updateChat = function (userName, message, isPm) {
-                var $newMessage;
+            $("#users .list-group-item").removeClass("active");
+            _.addClass("active");
 
-                if (currentUserName === userName) {
-                    $newMessage = $('<li class="list-group-item active">#'+userName+': ' + message + '</li>');
-                } else {
-                    $newMessage = $('<li class="list-group-item">#'+userName+': '+ message + '</li>');
-                }
-
-                $("#messages").append($newMessage);
-
-                $newMessage[0].scrollIntoView(true);
-            };
-
-            demoChatHubProxy.client.updateUsersOnline = function (data) {
+            $.ajax({
+                url: "@Url.Action("MessageHistories")",
+                data: {
+                    id: currentUserId,
+                    to: _.data("id")
+                },
+                async: false
+            }).done(function (data, textStatus, jqXHR) {
 
                 if (!data.success) {
                     console.error(data.result);
@@ -75,30 +71,73 @@
                     return;
                 }
 
-                var $users = $("#users");
+                $("#messages").html("");
 
-                $users.html("");
+                $.each(data.result, function (index, message) {
+
+                    var time = '<span class="glyphicon glyphicon-time" aria-hidden="true"></span>' + message.date;
+
+                    if (currentUserId === message.id) {
+                        $("#messages").append('<li class="list-group-item active">' + time + '<br>' + message.text + '</li>');
+                    } else {
+                        $("#messages").append('<li class="list-group-item">' + time + '<br>' + message.text + '</li>');
+                    }
+
+                });
+
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                console.error(errorThrown);
+            });
+        }
+
+        $(function () {
+            var demoChatHubProxy = $.connection.demoChatHub;
+
+            demoChatHubProxy.client.updateChat = function (id, date, message) {
+                var time = '<span class="glyphicon glyphicon-time" aria-hidden="true"></span>' + date;
+
+                if (currentUserId === id) {
+                    $("#messages").append('<li class="list-group-item active">' + time + '<br>' + message + '</li>');
+                } else {
+                    $("#messages").append('<li class="list-group-item">' + time + '<br>' + message + '</li>');
+                }
+
+            };
+
+            demoChatHubProxy.client.updateUsers = function (data) {
+
+                if (!data.success) {
+                    console.error(data.result);
+
+                    return;
+                }
+
+                $("#users").html("");
 
                 $.each(data.result, function (index, user) {
 
-                    var $user = $('<a href="javascript:void(0);" class="list-group-item">' + user + '</a>');
+                    var icon = '';
+                    var content = '';
 
-                    $user.click(function () {
-                        var $message = $("#message");
+                    if (user.id === currentUserId) {
+                        icon = '<span class="glyphicon glyphicon-cloud" aria-hidden="true"></span>';
+                        content = '<a href="javascript:void(0);" class="list-group-item" data-id="' + user.id + '" onclick="loadHistories(this);"> Saved messages <span class="pull-right badge">' + icon + '</span></a>';
+                    } else {
+                        icon = (user.online === 1) ? '<span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span>' : '<span class="glyphicon glyphicon-ban-circle" aria-hidden="true"></span>';
+                        content = '<a href="javascript:void(0);" class="list-group-item" data-id="' + user.id + '" onclick="loadHistories(this);">' + user.name + '<span class="pull-right">' + icon + '</span></a>';
+                    }
 
-                        $message.val("#" + $(this).text() + " ");
-                        $message.focus();
-                        $users.find(".list-group-item").removeClass("active");
-                        $user.addClass("active");
-                    });
 
-                    $users.append($user);
+                    $("#users").append(content);
                 });
+
             };
 
             $.connection.hub.start()
                 .done(function () {
-                    demoChatHubProxy.server.connectUser(currentUserName).done(function (data, textStatus, jqXHR) {
+
+                    demoChatHubProxy.server.connectUser(currentUserId).done(function (data, textStatus, jqXHR) {
+
                         if (!data.success) {
                             console.error(data.result);
                             return;
@@ -111,7 +150,12 @@
                             if ($message.val() === "")
                                 return;
 
-                            demoChatHubProxy.server.sendMessage(currentUserName, $message.val());
+                            var toUserId = $("#users .list-group-item.active").data("id");
+
+                            if (!toUserId)
+                                return;
+
+                            demoChatHubProxy.server.sendMessage(currentUserId, toUserId, $message.val());
                             $message.val("");
                         };
 
@@ -124,6 +168,7 @@
 
                         $message.focus();
                     });
+
                 })
                 .fail(function () {
                     console.warn("Could not connect.");
